@@ -219,12 +219,24 @@ export function startWebServer(port = 3000) {
     }
 
     // Serve static
-    const filePath = url.pathname === '/' ? './public/index.html' : `./public${url.pathname}`;
+    let filePath;
+    if (url.pathname === '/') {
+      filePath = './public/index.html';
+    } else if (url.pathname === '/favicon.ico') {
+      filePath = './assets/logo.ico';
+    } else if (url.pathname.startsWith('/assets/')) {
+      filePath = `.${url.pathname}`;
+    } else {
+      filePath = `./public${url.pathname}`;
+    }
+
     const ext = path.extname(filePath);
     const contentTypes = {
       '.html': 'text/html',
       '.css': 'text/css',
       '.js': 'application/javascript',
+      '.png': 'image/png',
+      '.ico': 'image/x-icon',
     };
 
     fs.readFile(filePath, (err, content) => {

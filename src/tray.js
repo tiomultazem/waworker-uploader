@@ -48,6 +48,26 @@ const enableCloseButton = () => {
     `);
 };
 
+const setConsoleIcon = () => {
+    const icoPath = path.join(process.cwd(), 'assets', 'logo.ico').replace(/\\/g, '\\\\');
+    runPowerShell(`
+        $iconPath = "${icoPath}";
+        if (Test-Path $iconPath) {
+            Add-Type -Name WinIcon -Namespace Win32 -MemberDefinition '
+                [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+                [DllImport("user32.dll")] public static extern IntPtr LoadImage(IntPtr hInst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
+                [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+            ';
+            $hwnd = [Win32.WinIcon]::GetConsoleWindow();
+            $hIcon = [Win32.WinIcon]::LoadImage([IntPtr]::Zero, $iconPath, 1, 0, 0, 0x00000010);
+            if ($hIcon -ne [IntPtr]::Zero) {
+                [Win32.WinIcon]::SendMessage($hwnd, 0x0080, 0, $hIcon);
+                [Win32.WinIcon]::SendMessage($hwnd, 0x0080, 1, $hIcon);
+            }
+        }
+    `);
+};
+
 // ── Menu items ───────────────────────────────────────────────────────
 const menuService = {
     title: 'waworker-uploader online on 3000',
@@ -209,13 +229,24 @@ TARGET_GROUP_ID=${targetGroupId}`;
         rl.close();
     }
 
-    // 1. Disable tombol close (X)
+    // 1. Disable tombol close (X) dan set window/taskbar icon
     disableCloseButton();
+    setConsoleIcon();
 
-    // 2. Buat system tray
+    // 2. Load icon base64 untuk system tray
+    let iconBase64 = '';
+    const icoPath = path.join(process.cwd(), 'assets', 'logo.ico');
+    const pngPath = path.join(process.cwd(), 'assets', 'logo.png');
+    if (fs.existsSync(icoPath)) {
+        iconBase64 = fs.readFileSync(icoPath).toString('base64');
+    } else if (fs.existsSync(pngPath)) {
+        iconBase64 = fs.readFileSync(pngPath).toString('base64');
+    }
+
+    // 3. Buat system tray
     systray = new SysTray({
         menu: {
-            icon: '',
+            icon: iconBase64,
             title: 'waworker-uploader',
             tooltip: 'WAWorker - Uploader',
             items: [

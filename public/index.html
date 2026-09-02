@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WAWorker - Uploader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: rgba(18, 26, 43, 0.75);
+      --border: rgba(255, 255, 255, 0.08);
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.3);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image:
+        radial-gradient(circle at 15% 20%, rgba(99, 102, 241, .15) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(16, 185, 129, .1) 0%, transparent 45%);
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(9, 13, 22, .8);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      background: linear-gradient(135deg, var(--primary), #a855f7);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 14px var(--primary-glow);
+      font-size: .9rem;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .3rem .7rem;
+      border-radius: 9999px;
+      font-size: .78rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--warning);
+      box-shadow: 0 0 7px var(--warning);
+    }
+
+    .dot.on {
+      background: var(--success);
+      box-shadow: 0 0 7px var(--success);
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex;
+      padding: 0 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(9, 13, 22, .85);
+    }
+
+    .tab {
+      padding: .7rem 1.1rem;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab:hover:not(.active) {
+      color: var(--text);
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      display: none;
+      padding: 1.5rem;
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .panel.active {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    #panel-settings.active {
+      display: block;
+      max-width: 760px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .card-title {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 1rem;
+    }
+
+    /* ── MONITOR ── */
+    .monitor-left {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      width: 320px;
+      flex-shrink: 0;
+    }
+
+    .monitor-right {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .qr-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 230px;
+    }
+
+    .qr-box img {
+      max-width: 200px;
+      width: 100%;
+    }
+
+    .qr-placeholder {
+      color: #374151;
+      font-size: .88rem;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .google-connected {
+      color: var(--success);
+      font-weight: 600;
+      font-size: .88rem;
+    }
+
+    .btn-login {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      width: 100%;
+      padding: .7rem;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+      color: #fff;
+      font-weight: 600;
+      font-size: .88rem;
+      text-decoration: none;
+      box-shadow: 0 4px 14px var(--primary-glow);
+      transition: all .2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-login:hover {
+      transform: translateY(-1px);
+    }
+
+    .log-box {
+      flex: 1;
+      background: rgba(5, 8, 15, .85);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .85rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      color: #e5e7eb;
+      overflow-y: auto;
+      max-height: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+    }
+
+    .log-entry {
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .log-time {
+      color: var(--muted);
+      margin-right: .4rem;
+    }
+
+    /* ── SETTINGS ── */
+    .settings-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+    }
+
+    .settings-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .settings-section h3 {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: .85rem;
+    }
+
+    .field {
+      margin-bottom: .75rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: .85rem;
+      font-weight: 600;
+      margin-bottom: .3rem;
+    }
+
+    .field .hint {
+      font-size: .76rem;
+      color: var(--muted);
+      margin-bottom: .45rem;
+      line-height: 1.45;
+    }
+
+    .field input {
+      width: 100%;
+      padding: .55rem .8rem;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .05);
+      color: var(--text);
+      font-size: .88rem;
+      font-family: 'JetBrains Mono', monospace;
+      transition: border-color .2s;
+      outline: none;
+    }
+
+    .field input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: .7rem;
+      margin-top: .85rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: .65rem 1.1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: .88rem;
+      border: none;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+      color: #fff;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, .07);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, .12);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, .15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, .3);
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, .25);
+    }
+
+    .save-feedback {
+      font-size: .83rem;
+      margin-top: .65rem;
+      color: var(--success);
+      display: none;
+    }
+
+    /* ── SETUP WIZARD OVERLAY ── */
+    #wizard-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: var(--bg);
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(99, 102, 241, .2) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(168, 85, 247, .15) 0%, transparent 50%);
+      overflow-y: auto;
+      padding: 2rem 1rem;
+    }
+
+    #wizard-overlay.show {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .wizard-container {
+      width: 100%;
+      max-width: 600px;
+      animation: fadeUp .4s ease;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .wizard-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .wizard-logo {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--primary), #a855f7);
+      border-radius: 16px;
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      box-shadow: 0 0 30px var(--primary-glow);
+    }
+
+    .wizard-header h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      margin-bottom: .4rem;
+    }
+
+    .wizard-header p {
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    /* Steps indicator */
+    .steps-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 2rem;
+    }
+
+    .step-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .78rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, .06);
+      border: 2px solid var(--border);
+      color: var(--muted);
+      transition: all .3s;
+      cursor: default;
+    }
+
+    .step-dot.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    .step-dot.done {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    .step-line {
+      width: 40px;
+      height: 2px;
+      background: var(--border);
+      transition: background .3s;
+    }
+
+    .step-line.done {
+      background: var(--success);
+    }
+
+    /* Wizard step content */
+    .wizard-step {
+      display: none;
+    }
+
+    .wizard-step.active {
+      display: block;
+      animation: fadeIn .3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .wizard-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.75rem;
+      backdrop-filter: blur(20px);
+      margin-bottom: 1rem;
+    }
+
+    .wizard-card h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: .35rem;
+    }
+
+    .wizard-card .desc {
+      font-size: .85rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+
+    .guide-steps {
+      background: rgba(99, 102, 241, .08);
+      border: 1px solid rgba(99, 102, 241, .2);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1.1rem;
+      font-size: .82rem;
+      line-height: 1.7;
+      color: #c7d2fe;
+    }
+
+    .guide-steps ol {
+      padding-left: 1.1rem;
+    }
+
+    .guide-steps code {
+      background: rgba(255, 255, 255, .1);
+      padding: .1rem .35rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+    }
+
+    .guide-steps a {
+      color: #a5b4fc;
+    }
+
+    .wizard-actions {
+      display: flex;
+      gap: .75rem;
+      margin-top: 1.25rem;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wizard-actions .right {
+      display: flex;
+      gap: .65rem;
+    }
+
+    /* Step 1: Welcome */
+    .welcome-features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      margin-top: 1.25rem;
+    }
+
+    .feature-item {
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .85rem;
+    }
+
+    .feature-item .icon {
+      font-size: 1.4rem;
+      margin-bottom: .4rem;
+    }
+
+    .feature-item .label {
+      font-size: .82rem;
+      font-weight: 600;
+    }
+
+    .feature-item .sub {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: .15rem;
+    }
+
+    @media (max-width: 900px) {
+      .panel.active {
+        flex-direction: column;
+      }
+
+      .monitor-left {
+        width: 100%;
+      }
+
+      .welcome-features {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ════════════════════════════════════════════════
+       SETUP WIZARD OVERLAY (first run)
+  ════════════════════════════════════════════════ -->
+  <div id="wizard-overlay">
+    <div class="wizard-container">
+      <div class="wizard-header">
+        <div class="wizard-logo">⚡</div>
+        <h1>WAWorker - Uploader</h1>
+        <p>Setup singkat untuk menghubungkan WhatsApp → Google Drive & Sheets</p>
+      </div>
+
+      <!-- Steps indicator -->
+      <div class="steps-indicator">
+        <div class="step-dot active" id="sdot-0">1</div>
+        <div class="step-line" id="sline-0"></div>
+        <div class="step-dot" id="sdot-1">2</div>
+        <div class="step-line" id="sline-1"></div>
+        <div class="step-dot" id="sdot-2">3</div>
+        <div class="step-line" id="sline-2"></div>
+        <div class="step-dot" id="sdot-3">4</div>
+        <div class="step-line" id="sline-3"></div>
+        <div class="step-dot" id="sdot-4">5</div>
+      </div>
+
+      <!-- Step 0: Welcome -->
+      <div class="wizard-step active" id="wstep-0">
+        <div class="wizard-card">
+          <h2>👋 Selamat datang!</h2>
+          <p class="desc">Aplikasi ini secara otomatis menyimpan gambar dari WhatsApp grup ke Google Drive dan mencatat
+            datanya ke Google Sheets. Setup hanya perlu dilakukan sekali.</p>
+          <div class="welcome-features">
+            <div class="feature-item">
+              <div class="icon">📱</div>
+              <div class="label">WhatsApp Monitor</div>
+              <div class="sub">Pantau grup secara otomatis</div>
+            </div>
+            <div class="feature-item">
+              <div class="icon">☁️</div>
+              <div class="label">Google Drive Upload</div>
+              <div class="sub">Gambar tersimpan otomatis</div>
+            </div>
+            <div class="feature-item">
+              <div class="icon">📊</div>
+              <div class="label">Google Sheets Log</div>
+              <div class="sub">Data tercatat rapi</div>
+            </div>
+            <div class="feature-item">
+              <div class="icon">🌐</div>
+              <div class="label">Dashboard Real-time</div>
+              <div class="sub">Monitor lewat browser</div>
+            </div>
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <div></div>
+          <div class="right">
+            <button class="btn btn-primary" onclick="nextStep()">Mulai Setup →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 1: Google OAuth -->
+      <div class="wizard-step" id="wstep-1">
+        <div class="wizard-card">
+          <h2>🔑 Google OAuth Credentials</h2>
+          <p class="desc">Buat credentials agar aplikasi bisa mengakses Google Drive dan Sheets atas nama kamu.</p>
+          <div class="guide-steps">
+            <ol>
+              <li>Buka <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+              <li>Buat project baru → aktifkan <code>Google Drive API</code> dan <code>Google Sheets API</code></li>
+              <li>Menu: <b>APIs & Services → Credentials → + Create Credentials → OAuth 2.0 Client ID</b></li>
+              <li>Application type: <b>Desktop app</b> → Create</li>
+              <li>Salin <b>Client ID</b> dan <b>Client Secret</b> ke bawah ini</li>
+              <li>Di OAuth consent screen, tambahkan email kamu sebagai <b>Test user</b></li>
+            </ol>
+          </div>
+          <div class="field">
+            <label>Client ID</label>
+            <input type="text" id="GOOGLE_CLIENT_ID" placeholder="587529743770-xxxx.apps.googleusercontent.com">
+          </div>
+          <div class="field">
+            <label>Client Secret</label>
+            <input type="password" id="GOOGLE_CLIENT_SECRET" placeholder="GOCSPX-xxxxxxxx">
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <button class="btn btn-secondary" onclick="prevStep()">← Kembali</button>
+          <div class="right">
+            <button class="btn btn-primary" onclick="nextStep()">Lanjut →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Google Drive -->
+      <div class="wizard-step" id="wstep-2">
+        <div class="wizard-card">
+          <h2>📁 Google Drive Folder</h2>
+          <p class="desc">Semua gambar dari WhatsApp akan diupload ke folder Google Drive yang kamu tentukan.</p>
+          <div class="guide-steps">
+            <ol>
+              <li>Buka <a href="https://drive.google.com/" target="_blank">Google Drive</a></li>
+              <li>Buat atau buka folder tujuan</li>
+              <li>Lihat URL browser: <code>drive.google.com/drive/folders/<b>[ID INI]</b></code></li>
+              <li>Salin ID tersebut ke kolom di bawah</li>
+            </ol>
+          </div>
+          <div class="field">
+            <label>Folder ID</label>
+            <input type="text" id="DRIVE_FOLDER_ID" placeholder="1ABCxyz_contoh_folder_id">
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <button class="btn btn-secondary" onclick="prevStep()">← Kembali</button>
+          <div class="right">
+            <button class="btn btn-primary" onclick="nextStep()">Lanjut →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Google Sheets -->
+      <div class="wizard-step" id="wstep-3">
+        <div class="wizard-card">
+          <h2>📊 Google Sheets</h2>
+          <p class="desc">Data pesan (tanggal, keterangan, link gambar) akan otomatis dicatat ke spreadsheet ini.</p>
+          <div class="guide-steps">
+            <ol>
+              <li>Buka atau buat <a href="https://sheets.google.com/" target="_blank">Google Spreadsheet</a> baru</li>
+              <li>Lihat URL: <code>docs.google.com/spreadsheets/d/<b>[ID INI]</b>/edit</code></li>
+              <li>Salin ID tersebut ke kolom di bawah</li>
+              <li>Pastikan ada tab sheet bernama <b>Data</b> (atau isi nama lain)</li>
+            </ol>
+          </div>
+          <div class="field">
+            <label>Spreadsheet ID</label>
+            <input type="text" id="SPREADSHEET_ID" placeholder="1ABCxyz_contoh_spreadsheet_id">
+          </div>
+          <div class="field">
+            <label>Nama Sheet / Tab</label>
+            <input type="text" id="SHEET_NAME" placeholder="Data">
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <button class="btn btn-secondary" onclick="prevStep()">← Kembali</button>
+          <div class="right">
+            <button class="btn btn-primary" onclick="nextStep()">Lanjut →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: WhatsApp Group -->
+      <div class="wizard-step" id="wstep-4">
+        <div class="wizard-card">
+          <h2>💬 WhatsApp Group (Opsional)</h2>
+          <p class="desc">Group ID menentukan grup mana yang dipantau. Boleh dikosongkan dulu dan diisi setelah scan QR.
+          </p>
+          <div class="guide-steps">
+            <ol>
+              <li>Kosongkan dulu, klik <b>Simpan & Mulai</b></li>
+              <li>Scan QR Code WhatsApp yang muncul di Dashboard</li>
+              <li>Kirim pesan sembarang ke grup target</li>
+              <li>Lihat tab <b>Monitor → Live Logs</b> — Group ID akan muncul di sana</li>
+              <li>Salin Group ID, lalu buka tab <b>Pengaturan</b> dan tempel ID-nya</li>
+            </ol>
+          </div>
+          <div class="field">
+            <label>Target Group ID <span style="color:var(--muted);font-weight:400">(opsional)</span></label>
+            <input type="text" id="TARGET_GROUP_ID" placeholder="120363378308083323@g.us">
+          </div>
+        </div>
+        <div class="wizard-actions">
+          <button class="btn btn-secondary" onclick="prevStep()">← Kembali</button>
+          <div class="right">
+            <button class="btn btn-primary" onclick="saveWizard()">💾 Simpan &amp; Mulai ✓</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       MAIN DASHBOARD
+  ════════════════════════════════════════════════ -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      WAWorker - Uploader
+    </div>
+    <div class="status-badge">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Memuat...</span>
+    </div>
+  </header>
+
+  <nav>
+    <div class="tab active" data-tab="monitor">📊 Monitor</div>
+    <div class="tab" data-tab="settings">⚙️ Pengaturan</div>
+  </nav>
+
+  <!-- Monitor -->
+  <div class="panel active" id="panel-monitor">
+    <div class="monitor-left">
+      <div class="card">
+        <div class="card-title">🔑 Google OAuth</div>
+        <a id="loginBtn" href="#" target="_blank" class="btn-login" style="display:none">Login Google</a>
+        <div id="googleConnected" class="google-connected" style="display:none">✅ Terhubung ke Google</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📱 WhatsApp QR Code</div>
+        <div class="qr-box" id="qrBox">
+          <div class="qr-placeholder">Menunggu QR Code...</div>
+        </div>
+      </div>
+    </div>
+    <div class="monitor-right card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>📜 Live Logs</span>
+        <button class="btn btn-secondary" style="font-size:.72rem;padding:.2rem .55rem" onclick="clearLogsUI()">🗑️
+          Clear Logs</button>
+      </div>
+      <div class="log-box" id="logBox">
+        <div class="log-entry"><span class="log-time">[System]</span> Menghubungkan ke server...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="panel" id="panel-settings">
+    <p class="settings-title">⚙️ Pengaturan</p>
+
+    <div class="settings-section">
+      <h3>🔑 Google OAuth Credentials</h3>
+      <div class="field">
+        <label>Client ID</label>
+        <input type="text" id="s_GOOGLE_CLIENT_ID" placeholder="587529743770-xxxx.apps.googleusercontent.com">
+      </div>
+      <div class="field">
+        <label>Client Secret</label>
+        <input type="password" id="s_GOOGLE_CLIENT_SECRET" placeholder="GOCSPX-xxxxxxxx">
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>📁 Google Drive</h3>
+      <div class="field">
+        <label>Folder ID</label>
+        <div class="hint">URL Drive: drive.google.com/drive/folders/<b>[ID INI]</b></div>
+        <input type="text" id="s_DRIVE_FOLDER_ID" placeholder="1ABCxyz...">
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>📊 Google Sheets</h3>
+      <div class="field">
+        <label>Spreadsheet ID</label>
+        <div class="hint">URL Sheets: docs.google.com/spreadsheets/d/<b>[ID INI]</b>/edit</div>
+        <input type="text" id="s_SPREADSHEET_ID" placeholder="1ABCxyz...">
+      </div>
+      <div class="field">
+        <label>Nama Sheet / Tab</label>
+        <input type="text" id="s_SHEET_NAME" placeholder="Data">
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>💬 WhatsApp Group</h3>
+      <div class="field">
+        <label>Target Group ID</label>
+        <div class="hint">Kosongkan jika belum tahu. Kirim pesan ke grup lalu cek Live Logs untuk mendapatkan ID-nya.
+        </div>
+        <input type="text" id="s_TARGET_GROUP_ID" placeholder="120363378308083323@g.us">
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>🖼️ Penamaan File Google Drive</h3>
+      <div class="field" style="display:flex;align-items:center;gap:.6rem;cursor:pointer">
+        <input type="checkbox" id="s_useTextAsFileName" style="width:auto;cursor:pointer">
+        <label for="s_useTextAsFileName" style="margin-bottom:0;cursor:pointer">Gunakan isi pesan sebagai nama file
+          gambar</label>
+      </div>
+      <div class="hint" style="margin-top:.4rem">Jika tidak dicentang, file di Drive akan diberi nama timestamp (contoh:
+        foto_1788229746040.jpg).</div>
+    </div>
+    <div class="settings-section">
+      <h3>📋 Pemetaan Kolom Google Sheets</h3>
+      <div class="hint" style="margin-bottom:.85rem">Pilih data metadata untuk masing-masing Kolom A sampai J (maksimal
+        10 kolom):</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem" id="colMappingContainer"></div>
+    </div>
+    <div class="settings-actions">
+      <button class="btn btn-danger" onclick="saveAndRestart()">🔄 Simpan &amp; Restart</button>
+    </div>
+    <div class="save-feedback" id="saveFeedback">✅ Berhasil disimpan!</div>
+  </div>
+
+  <script>
+    /* ── State ── */
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const qrBox = document.getElementById('qrBox');
+    const loginBtn = document.getElementById('loginBtn');
+    const gConn = document.getElementById('googleConnected');
+    const logBox = document.getElementById('logBox');
+
+    /* ── Tabs ── */
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    /* ── Log ── */
+    function appendLog(msg, time) {
+      const e = document.createElement('div');
+      e.className = 'log-entry';
+      const t = time || new Date().toLocaleTimeString('id-ID');
+      e.innerHTML = `<span class="log-time">[${t}]</span> ${msg}`;
+      logBox.appendChild(e);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    /* ── SSE ── */
+    const sse = new EventSource('/events');
+    sse.onmessage = (event) => {
+      const d = JSON.parse(event.data);
+
+      if (d.type === 'needs_setup') {
+        showWizard();
+        return;
+      }
+
+      if (d.type === 'init') {
+        const s = d.state;
+        statusText.textContent = s.status;
+        statusDot.className = 'dot' + (s.connected ? ' on' : '');
+        if (s.connected) {
+          qrBox.innerHTML = `<div class="qr-placeholder" style="color:var(--success);font-weight:600">✅ WhatsApp Terhubung</div>`;
+        } else if (s.qrDataUrl) {
+          qrBox.innerHTML = `<img src="${s.qrDataUrl}" alt="QR">`;
+        }
+        if (s.googleAuthenticated) { loginBtn.style.display = 'none'; gConn.style.display = 'block'; }
+        else if (s.googleAuthUrl) { loginBtn.href = s.googleAuthUrl; loginBtn.style.display = 'flex'; }
+        if (s.logs?.length) {
+          logBox.innerHTML = '';
+          s.logs.forEach(item => {
+            if (typeof item === 'string') appendLog(item);
+            else appendLog(item.message, item.time);
+          });
+        }
+        return;
+      }
+      if (d.type === 'logs_cleared') {
+        logBox.innerHTML = '';
+        return;
+      }
+      if (d.type === 'status') { statusText.textContent = d.status; statusDot.className = 'dot' + (d.connected ? ' on' : ''); }
+      if (d.type === 'google_auth_url') { loginBtn.href = d.url; loginBtn.style.display = 'flex'; gConn.style.display = 'none'; appendLog('🔗 Klik tombol Login Google.'); }
+      if (d.type === 'google_authenticated') { loginBtn.style.display = 'none'; gConn.style.display = 'block'; appendLog('✅ Google terhubung.'); }
+      if (d.type === 'qr') { qrBox.innerHTML = `<img src="${d.qrDataUrl}" alt="QR">`; appendLog('📱 QR Code siap discan.'); }
+      if (d.type === 'qr_clear') { qrBox.innerHTML = `<div class="qr-placeholder" style="color:var(--success);font-weight:600">✅ WhatsApp Terhubung</div>`; }
+      if (d.type === 'log') appendLog(d.message, d.time);
+    };
+
+    async function clearLogsUI() {
+      await fetch('/api/logs/clear', { method: 'POST' });
+      logBox.innerHTML = '';
+    }
+
+    /* ── WIZARD ── */
+    let wizardStep = 0;
+    const TOTAL_STEPS = 5;
+
+    function showWizard() {
+      document.getElementById('wizard-overlay').classList.add('show');
+      loadSettingsToWizard();
+    }
+    function hideWizard() {
+      document.getElementById('wizard-overlay').classList.remove('show');
+    }
+
+    function updateStepIndicator() {
+      for (let i = 0; i < TOTAL_STEPS; i++) {
+        const dot = document.getElementById('sdot-' + i);
+        const line = document.getElementById('sline-' + i);
+        if (i < wizardStep) { dot.className = 'step-dot done'; dot.textContent = '✓'; }
+        else if (i === wizardStep) { dot.className = 'step-dot active'; dot.textContent = i + 1; }
+        else { dot.className = 'step-dot'; dot.textContent = i + 1; }
+        if (line) line.className = 'step-line' + (i < wizardStep ? ' done' : '');
+      }
+      document.querySelectorAll('.wizard-step').forEach((s, i) => {
+        s.classList.toggle('active', i === wizardStep);
+      });
+    }
+
+    function nextStep() {
+      if (wizardStep < TOTAL_STEPS - 1) {
+        wizardStep++;
+        updateStepIndicator();
+        window.scrollTo(0, 0);
+      }
+    }
+    function prevStep() {
+      if (wizardStep > 0) {
+        wizardStep--;
+        updateStepIndicator();
+        window.scrollTo(0, 0);
+      }
+    }
+
+    async function loadSettingsToWizard() {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      const wmap = { GOOGLE_CLIENT_ID: 'GOOGLE_CLIENT_ID', GOOGLE_CLIENT_SECRET: 'GOOGLE_CLIENT_SECRET', DRIVE_FOLDER_ID: 'DRIVE_FOLDER_ID', SPREADSHEET_ID: 'SPREADSHEET_ID', SHEET_NAME: 'SHEET_NAME', TARGET_GROUP_ID: 'TARGET_GROUP_ID' };
+      Object.entries(wmap).forEach(([k, id]) => {
+        const el = document.getElementById(id);
+        if (el && data[k]) el.value = data[k];
+      });
+    }
+
+    async function saveWizard() {
+      const config = {
+        GOOGLE_CLIENT_ID: document.getElementById('GOOGLE_CLIENT_ID')?.value?.trim() || '',
+        GOOGLE_CLIENT_SECRET: document.getElementById('GOOGLE_CLIENT_SECRET')?.value?.trim() || '',
+        DRIVE_FOLDER_ID: document.getElementById('DRIVE_FOLDER_ID')?.value?.trim() || '',
+        SPREADSHEET_ID: document.getElementById('SPREADSHEET_ID')?.value?.trim() || '',
+        SHEET_NAME: document.getElementById('SHEET_NAME')?.value?.trim() || 'Data',
+        TARGET_GROUP_ID: document.getElementById('TARGET_GROUP_ID')?.value?.trim() || '',
+      };
+      await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
+      await fetch('/api/restart', { method: 'POST' });
+      document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:1rem;background:#090d16;color:#fff;font-family:sans-serif">
+        <div style="font-size:2.5rem">🚀</div>
+        <p style="font-size:1.1rem;font-weight:700">Setup selesai! Aplikasi sedang restart...</p>
+        <p style="color:#9ca3af;font-size:.88rem">Halaman ini akan otomatis refresh dalam 4 detik.</p>
+      </div>`;
+      setTimeout(() => location.reload(), 4000);
+    }
+
+    const COLUMN_OPTIONS = [
+      { value: 'none', label: '-- Kosongkan Kolom --' },
+      { value: 'sender', label: '1. Nomor Pengirim (sender)' },
+      { value: 'pushName', label: '2. Nama Profile WA (pushName)' },
+      { value: 'text', label: '3. Pesan / Caption (text)' },
+      { value: 'fileUrl', label: '4. Link File Drive (fileUrl)' },
+      { value: 'fileName', label: '5. Nama File Gambar (fileName)' },
+      { value: 'fileId', label: '6. Drive File ID (fileId)' },
+      { value: 'timestamp', label: '7. Timestamp Pesan Masuk (timestamp)' },
+      { value: 'groupId', label: '8. ID Grup WhatsApp (groupId)' },
+      { value: 'mediaType', label: '9. Tipe Media (mediaType)' },
+    ];
+
+    function renderColumnMappingSelects(mapping = []) {
+      const container = document.getElementById('colMappingContainer');
+      if (!container) return;
+      const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+      let html = '';
+      cols.forEach((colLetter, idx) => {
+        const selectedVal = mapping[idx] || (idx === 0 ? 'sender' : idx === 1 ? 'text' : idx === 2 ? 'fileUrl' : 'none');
+        let optsHtml = '';
+        COLUMN_OPTIONS.forEach(opt => {
+          const isSel = opt.value === selectedVal ? 'selected' : '';
+          optsHtml += `<option value="${opt.value}" ${isSel}>${opt.label}</option>`;
+        });
+        html += `
+          <div class="field" style="margin-bottom:.4rem">
+            <label style="font-size:.78rem;color:var(--muted)">Kolom ${colLetter}</label>
+            <select id="col_select_${idx}" style="width:100%;padding:.45rem .6rem;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);font-size:.82rem;outline:none">
+              ${optsHtml}
+            </select>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    /* ── Settings tab ── */
+    const S_FIELDS = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DRIVE_FOLDER_ID', 'SPREADSHEET_ID', 'SHEET_NAME', 'TARGET_GROUP_ID'];
+
+    async function loadSettings() {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      S_FIELDS.forEach(k => {
+        const el = document.getElementById('s_' + k);
+        if (el) el.value = data[k] || '';
+      });
+      const chk = document.getElementById('s_useTextAsFileName');
+      if (chk) chk.checked = data.useTextAsFileName !== false;
+      renderColumnMappingSelects(data.columnMapping || ['sender', 'text', 'fileUrl']);
+    }
+    async function saveAndRestart() {
+      await saveSettings();
+      await fetch('/api/restart', { method: 'POST' });
+      document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:1rem;background:#090d16;color:#fff;font-family:sans-serif">
+        <div style="font-size:2rem">🔄</div>
+        <p style="font-size:1.1rem;font-weight:600">Sedang restart...</p>
+        <p style="color:#9ca3af;font-size:.88rem">Refresh otomatis dalam 4 detik.</p>
+      </div>`;
+      setTimeout(() => location.reload(), 4000);
+    }
+
+    loadSettings();
+  </script>
+</body>
+
+</html>

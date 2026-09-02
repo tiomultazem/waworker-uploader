@@ -1,0 +1,11 @@
+node_modules/
+.env
+auth/
+tmp/
+data/
+config.json
+*.log
+artifacts/
+knowledge.md"node_modules/" 
+".env" 
+"auth/" 

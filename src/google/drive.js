@@ -9,7 +9,7 @@ import path from 'path';
  * @param {string} fileName - Nama file di Drive
  * @returns {{ id: string, name: string, webViewLink: string }}
  */
-export async function uploadImage(auth, filePath, fileName) {
+export async function uploadImage(auth, filePath, fileName, customMimeType = null) {
   const drive = google.drive({ version: 'v3', auth });
 
   const ext = path.extname(fileName).toLowerCase();
@@ -18,8 +18,16 @@ export async function uploadImage(auth, filePath, fileName) {
     '.jpeg': 'image/jpeg',
     '.png': 'image/png',
     '.webp': 'image/webp',
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.txt': 'text/plain',
+    '.csv': 'text/csv',
+    '.zip': 'application/zip',
   };
-  const mimeType = mimeTypes[ext] ?? 'image/jpeg';
+  const mimeType = customMimeType || mimeTypes[ext] || 'application/octet-stream';
 
   const response = await drive.files.create({
     requestBody: {

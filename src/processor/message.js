@@ -110,36 +110,56 @@ async function handleProcessMessage(auth, { sock, msg }) {
   if (content.viewOnceMessage) content = content.viewOnceMessage.message;
   if (content.viewOnceMessageV2) content = content.viewOnceMessageV2.message;
 
-  // Ekstraksi pesan teks dan gambar
+  // Ekstraksi pesan teks, gambar, dan dokumen
   const directImageMessage = content?.imageMessage;
+  const directDocumentMessage = content?.documentMessage;
   const extendedTextMessage = content?.extendedTextMessage;
   const conversationText = content?.conversation;
   const contextInfo = extendedTextMessage?.contextInfo;
   const quotedMessage = contextInfo?.quotedMessage;
 
-  // Cek apakah balasan (reply) menyertakan pesan gambar
+  // Cek apakah balasan (reply) menyertakan pesan gambar atau dokumen
   let quotedContent = quotedMessage;
   if (quotedContent?.ephemeralMessage) quotedContent = quotedContent.ephemeralMessage.message;
   if (quotedContent?.viewOnceMessage) quotedContent = quotedContent.viewOnceMessage.message;
   if (quotedContent?.viewOnceMessageV2) quotedContent = quotedContent.viewOnceMessageV2.message;
   const quotedImageMessage = quotedContent?.imageMessage;
+  const quotedDocumentMessage = quotedContent?.documentMessage;
 
-  const textContent = (conversationText || extendedTextMessage?.text || directImageMessage?.caption || '').trim();
-  const targetImage = directImageMessage || quotedImageMessage;
+  const directMedia = directImageMessage || directDocumentMessage;
+  const quotedMedia = quotedImageMessage || quotedDocumentMessage;
+  const targetMedia = directMedia || quotedMedia;
 
-  // Aturan 1: Kirim gambar doang (tanpa teks) → Silent (Abaikan)
+  const isDoc = !!directDocumentMessage || !!quotedDocumentMessage;
+
+  let textContent = (
+    conversationText ||
+    extendedTextMessage?.text ||
+    directImageMessage?.caption ||
+    directDocumentMessage?.caption ||
+    ''
+  ).trim();
+
+  // Jika dokumen dikirim tanpa teks, gunakan nama file dokumen sebagai teks
+  if (!textContent && isDoc && targetMedia?.fileName) {
+    textContent = targetMedia.fileName;
+  } else if (!textContent && isDoc) {
+    textContent = 'Dokumen';
+  }
+
+  // Aturan 1: Kirim foto doang (tanpa teks) → Silent (Abaikan)
   if (directImageMessage && !textContent) {
-    sendSSE('log', { message: `ℹ️ Gambar tanpa teks terdeteksi [${messageId}]. Mode silent/skipped.` });
+    sendSSE('log', { message: `ℹ️ Foto tanpa teks terdeteksi [${messageId}]. Mode silent/skipped.` });
     return;
   }
 
-  // Aturan 2: Kirim teks doang (tanpa gambar langsung dan tidak reply gambar) → Balas Peringatan
-  if (!targetImage && textContent) {
+  // Aturan 2: Kirim teks doang (tanpa media langsung dan tidak reply media) → Balas Peringatan
+  if (!targetMedia && textContent) {
     markProcessing(messageId);
-    sendSSE('log', { message: `⚠️ Teks tanpa gambar terdeteksi [${messageId}]. Mengirim pesan peringatan.` });
+    sendSSE('log', { message: `⚠️ Teks tanpa foto/dokumen terdeteksi [${messageId}]. Mengirim pesan peringatan.` });
     try {
       await sock.sendMessage(msg.key.remoteJid, {
-        text: 'harap kirim pesan dan gambar',
+        text: 'harap kirim pesan beserta foto/dokumen',
       }, { quoted: msg });
     } catch (e) {
       console.error('Error sending warning message:', e.message);
@@ -148,12 +168,12 @@ async function handleProcessMessage(auth, { sock, msg }) {
     return;
   }
 
-  // Jika tidak ada gambar dan tidak ada teks, abaikan
-  if (!targetImage || !textContent) {
+  // Jika tidak ada media dan tidak ada teks, abaikan
+  if (!targetMedia || !textContent) {
     return;
   }
 
-  // Aturan 3: Gambar dengan teks OR Reply teks ke pesan gambar → Proses & Upload
+  // Aturan 3: Media dengan teks OR Reply teks ke pesan media → Proses & Upload
   const sender = await resolveSenderPhone(sock, msg.key.remoteJid, msg);
 
   markProcessing(messageId);
@@ -166,21 +186,41 @@ async function handleProcessMessage(auth, { sock, msg }) {
     const appConfig = readAppConfig();
     const timestamp = Date.now();
 
-    let fileName = `foto_${timestamp}.jpg`;
+    // Tentukan ekstensi file dari nama file dokumen atau mimetype
+    let ext = '.jpg';
+    if (targetMedia.fileName && path.extname(targetMedia.fileName)) {
+      ext = path.extname(targetMedia.fileName).toLowerCase();
+    } else if (targetMedia.mimetype) {
+      const mimeMap = {
+        'application/pdf': '.pdf',
+        'application/msword': '.doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.ms-excel': '.xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'image/jpeg': '.jpg',
+      };
+      if (mimeMap[targetMedia.mimetype]) {
+        ext = mimeMap[targetMedia.mimetype];
+      }
+    }
+
+    let fileName = targetMedia.fileName || `file_${timestamp}${ext}`;
     if (appConfig.useTextAsFileName) {
       const safeName = textContent
         .replace(/[\\/:*?"<>|]/g, '')
         .slice(0, 100)
         .trim();
-      fileName = `${safeName || 'foto'}.jpg`;
+      fileName = `${safeName || 'file'}${ext}`;
     }
 
     tmpPath = path.join(TMP_DIR, fileName);
 
-    sendSSE('log', { message: `📥 Mengunduh gambar dari WhatsApp...` });
+    sendSSE('log', { message: `📥 Mengunduh media dari WhatsApp...` });
 
     // Konstruksi objek media yang akan diunduh (langsung atau dari reply)
-    const msgToDownload = directImageMessage
+    const msgToDownload = directMedia
       ? msg
       : {
           key: {
@@ -210,8 +250,8 @@ async function handleProcessMessage(auth, { sock, msg }) {
 
     fs.writeFileSync(tmpPath, buffer);
 
-    sendSSE('log', { message: `☁️ Mengupload gambar ke Google Drive...` });
-    const driveFile = await uploadImage(auth, tmpPath, fileName);
+    sendSSE('log', { message: `☁️ Mengupload file ke Google Drive...` });
+    const driveFile = await uploadImage(auth, tmpPath, fileName, targetMedia.mimetype);
     sendSSE('log', { message: `✅ Upload Drive berhasil: <b><a href="${driveFile.webViewLink}" target="_blank">${driveFile.name}</a></b>` });
 
     const formattedTime = new Date().toLocaleString('id-ID');
@@ -224,7 +264,7 @@ async function handleProcessMessage(auth, { sock, msg }) {
       fileId: driveFile.id || '',
       timestamp: formattedTime,
       groupId: msg.key.remoteJid || '',
-      mediaType: targetImage.mimetype || 'image/jpeg',
+      mediaType: targetMedia.mimetype || 'application/octet-stream',
     };
 
     sendSSE('log', { message: `📊 Memperbarui Google Sheets...` });
